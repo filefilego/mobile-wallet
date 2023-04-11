@@ -1,0 +1,7 @@
+{
+  "name": "mobile-wallet",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "vue-vite"
+}
