@@ -26,7 +26,12 @@ import './theme/variables.css';
 const app = createApp(App)
   .use(IonicVue)
   .use(router);
-  
+
+// treat all tags starting with 'ion-' as custom elements
+// app.config.compilerOptions.isCustomElement = (tag) => {
+//   return tag.startsWith('ion-')
+// }
+
 router.isReady().then(() => {
   app.mount('#app');
 });

@@ -21,8 +21,30 @@
   </ion-page>
 </template>
 
-<script setup lang="ts">
+<script>
 import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar } from '@ionic/vue';
+import {GenerateKey, SaveKeyToStorage, GetKeyFromStorage} from "../key.js"
+
+export default {
+  components: {
+    IonContent,
+    IonHeader,
+    IonPage,
+    IonTitle,
+    IonToolbar
+  },
+
+  async setup() {
+    // GenerateKey()
+    // await SaveKeyToStorage("this is stored")
+    console.log(await GetKeyFromStorage())
+    return {}
+  }
+}
+
+
+
+
 </script>
 
 <style scoped>
