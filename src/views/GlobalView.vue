@@ -23,7 +23,8 @@
 
 <script>
 import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar } from '@ionic/vue';
-import {GenerateKey, SaveKeyToStorage, GetKeyFromStorage} from "../key.js"
+import {GenerateKey, SaveKeyToStorage, GetKeyFromStorage, UnlockKey} from "../key.js"
+
 
 export default {
   components: {
@@ -35,9 +36,16 @@ export default {
   },
 
   async setup() {
-    // GenerateKey()
-    // await SaveKeyToStorage("this is stored")
-    console.log(await GetKeyFromStorage())
+
+    const keyfile = await GenerateKey("mypassword")
+    console.log("generated key: ", keyfile);
+    try {
+        UnlockKey(keyfile.jsonKey, "mypassword")
+      } catch(e) {
+        console.log("errpr ", e.message)
+    }
+
+    // await SaveKeyToStorage(JSON.stringify(keyfile))
     return {}
   }
 }
