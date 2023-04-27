@@ -1,10 +1,8 @@
-import * as secp from '@noble/secp256k1'; 
+import { secp256k1 } from '@noble/curves/secp256k1'
 import { Preferences } from '@capacitor/preferences';
-import sha256 from 'crypto-js/sha256';
-import AES from 'crypto-js/aes';
 import CryptoJS from 'crypto-js';
 import scrypt from 'scrypt-async';
-import aes from 'js-crypto-aes';
+import aesjs from 'aes-js';
 
 
 const fromHexString = (hexString) => Uint8Array.from(hexString.match(/.{1,2}/g).map((byte) => parseInt(byte, 16)));
@@ -46,146 +44,145 @@ const PeformScrypt =  async (password, salt) => {
   });
 }
 
-function aesEncryptCtr(message, secretKey, iv) {
-  const encrypted = AES.encrypt(message, secretKey , {
-    iv : iv,
-    mode: CryptoJS.mode.CTR,
-    // padding: CryptoJS.pad.NoPadding
+const aesEncryptCtr = async (message, secretKey, iv) => {
+  return await new Promise((resolve, reject) => {
+    var aesCtr = new aesjs.ModeOfOperation.ctr(secretKey, new aesjs.Counter(iv));
+    let encryptedBytes = aesCtr.encrypt(message);
+    resolve(toHexString(encryptedBytes))
   });
-
-  return encrypted.ciphertext.toString(CryptoJS.enc.Hex);
 }
 
-function aesDecryptCtr(message, secretKey, iv) {
-  const cipherParams = CryptoJS.lib.CipherParams.create({
-    ciphertext: message,
-    iv: iv,
+const aesDecryptCtr = async (message, secretKey, iv) => {
+  return await new Promise((resolve, reject) => {
+    var aesCtr = new aesjs.ModeOfOperation.ctr(secretKey, new aesjs.Counter(iv));
+    let decryptedBytes = aesCtr.decrypt(message);
+    resolve(toHexString(decryptedBytes))
   });
-
-  const decrypted = CryptoJS.AES.decrypt(cipherParams, secretKey, {
-    mode: CryptoJS.mode.CTR
-  });
-
-
-  return decrypted
 }
 
-function concatenateUint8Arrays(arr1, arr2) {
-  const concatenated = new Uint8Array(arr1.length + arr2.length);
-  concatenated.set(arr1);
-  concatenated.set(arr2, arr1.length);
-  return concatenated;
+function concatenateUint8Arrays(arrays) {
+  let totalLength = 0;
+  for (let i = 0; i < arrays.length; i++) {
+    totalLength += arrays[i].length;
+  }
+  
+  let concatenatedArray = new Uint8Array(totalLength);
+  
+  let offset = 0;
+  for (let i = 0; i < arrays.length; i++) {
+    concatenatedArray.set(arrays[i], offset);
+    offset += arrays[i].length;
+  }
+  
+  return concatenatedArray;
 }
 
-export async function SignMessage(privKey, message) {
-    const signature = await secp.signAsync(message, privKey);
-    // const isValid = secp.verify(signature, msgHash, pubKey); // verify
-    // console.log("isvalid ", isValid)
+function stringToUint8Array(str) {
+  let encoder = new TextEncoder();
+  return encoder.encode(str);
+}
 
-    // const hashDigest = sha256("hello").toString();
-    console.log(hashDigest)
+function bigIntToUint8Array(bigint) {
+  const byteLength = Math.max(1, Math.ceil(bigint.toString(2).length / 8));
+  const uint8Array = new Uint8Array(byteLength);
+
+  for (let i = byteLength - 1; i >= 0; i--) {
+    const byte = bigint & 0xffn;
+    uint8Array[i] = Number(byte);
+    bigint = bigint >> 8n;
+  }
+
+  return uint8Array;
+}
+
+
+export function SignTransaction(privKey, nounce, data, to, value, transactionFees) {
+    const nounceBig = BigInt(nounce);
+    const nounceBytes = bigIntToUint8Array(nounceBig);
+    if (typeof privKey === 'string' || privKey instanceof String) {
+      privKey = fromHexString(privKey);
+    }
+
+    if (typeof data === 'string' || data instanceof String) {
+      data = fromHexString(data);
+    }
+
+    const chainID = fromHexString("01");
+    const publicKey = secp256k1.getPublicKey(privKey);
+    const myaddress =  publicKeyAddress(publicKey);
+    const allData = toHexString(concatenateUint8Arrays([publicKey, nounceBytes, data, stringToUint8Array(myaddress), stringToUint8Array(to), stringToUint8Array(value), stringToUint8Array(transactionFees), chainID]));
+    const txhash = CryptoJS.SHA256(CryptoJS.enc.Hex.parse(allData)).toString();
+    const dataArray = fromHexString(txhash);
+    const signature = secp256k1.sign(dataArray, privKey, { prehash: true });
+    
+    const transaction =  {
+      hash : "0x" + txhash,
+      signature: "0x" + signature.toDERHex(),
+      public_key : "0x" + toHexString(publicKey),
+      nounce:  nounce,
+      data: "0x" + toHexString(data),
+      from: myaddress,
+      to: to,
+      value: value,
+      transaction_fees: transactionFees,
+      chain: "0x" + toHexString(chainID)
+    }
+
+  return JSON.stringify(transaction);
+}
+
+function publicKeyAddress(pubKey) {
+  const pubkeyhex = toHexString(pubKey);
+  const publicKeyHashHex = CryptoJS.SHA3(CryptoJS.enc.Hex.parse(pubkeyhex), { outputLength: 256 }).toString();
+  const publicKeyHashBytes = fromHexString(publicKeyHashHex)
+  const address = getRangeFromArray(publicKeyHashBytes, 12, 32);
+  const addressHex = "0x"+toHexString(address);
+  return addressHex;
 }
 
 export async function GenerateKey(password) {
-    const privKey = secp.utils.randomPrivateKey();
-    const salt32 = secp.utils.randomPrivateKey();
-
+    const privKey =  secp256k1.utils.randomPrivateKey();
+    const salt32 =  secp256k1.utils.randomPrivateKey();
+    const iv32 =  secp256k1.utils.randomPrivateKey();
     const privKeyHex = toHexString(privKey);
-    const pubKey = secp.getPublicKey(privKey);
-  
+    const pubKey = secp256k1.getPublicKey(privKey);
     const pubkeyhex = toHexString(pubKey);
-
     const result = await PeformScrypt(password, salt32);
     const dk = fromHexString(result);
-
     const enckey = getRangeFromArray(dk, 0, 16);
-    const encKeyHex = toHexString(enckey);
-    console.log("generate: encKeyHex", encKeyHex)
-    const iv = CryptoJS.lib.WordArray.random(16);
-    const cipherText = aesEncryptCtr(CryptoJS.enc.Hex.parse(privKeyHex), CryptoJS.enc.Hex.parse(encKeyHex), iv);
-
-    console.log("encrypted cipherText", cipherText)
-
+    const iv = getRangeFromArray(iv32, 0, 16);
+    const cipherText = await aesEncryptCtr(privKey, enckey, iv);
     const cipherTextBytes = fromHexString(cipherText)
     const dkSecondPart = getRangeFromArray(dk, 16, 32);
-
-
-    const dkWithCipherText = toHexString(concatenateUint8Arrays(dkSecondPart,cipherTextBytes));
-
+    const dkWithCipherText = toHexString(concatenateUint8Arrays([dkSecondPart,cipherTextBytes]));
     const mac = CryptoJS.SHA3(CryptoJS.enc.Hex.parse(dkWithCipherText), { outputLength: 256 }).toString();
-
     const publicKeyHashHex = CryptoJS.SHA3(CryptoJS.enc.Hex.parse(pubkeyhex), { outputLength: 256 }).toString();
     const publicKeyHashBytes = fromHexString(publicKeyHashHex)
-    const address = getRangeFromArray(publicKeyHashBytes, 12, 32);
+    const address = getRangeFromArray(publicKeyHashBytes, 12, 100);
     const addressHex = "0x"+toHexString(address);
-    const finalKeyJSON = JSONKey(addressHex, cipherText, CryptoJS.enc.Hex.stringify(iv),  262144, 8, 1, 32, toHexString(salt32), mac, e7())
+    const finalKeyJSON = JSONKey(addressHex, cipherText, toHexString(iv),  262144, 8, 1, 32, toHexString(salt32), mac, e7())
 
-    return { jsonKey: finalKeyJSON, privKeyHex: privKeyHex }
+    return { jsonKey: finalKeyJSON, privKeyHex: privKeyHex };
 }
 
 export async function UnlockKey(jsonKey, password) {
-  const salt32 = fromHexString(jsonKey.crypto.kdfparams.salt)
+  const salt32 = fromHexString(jsonKey.crypto.kdfparams.salt);
   const result = await PeformScrypt(password, salt32);
   const dk = fromHexString(result);
-  const cipherTextBytes = fromHexString(jsonKey.crypto.ciphertext)
+  const cipherTextBytes = fromHexString(jsonKey.crypto.ciphertext);
   const dkSecondPart = getRangeFromArray(dk, 16, 32);
-  const dkWithCipherText = toHexString(concatenateUint8Arrays(dkSecondPart,cipherTextBytes));
+  const dkWithCipherText = toHexString(concatenateUint8Arrays([dkSecondPart,cipherTextBytes]));
   const mac = CryptoJS.SHA3(CryptoJS.enc.Hex.parse(dkWithCipherText), { outputLength: 256 }).toString();
   if (mac !== jsonKey.crypto.mac) {
     throw new Error("mac mismatch");
   }
 
   const enckey = getRangeFromArray(dk, 0, 16);
-  const encKeyHex = toHexString(enckey);
-
-  console.log("encKeyHex", encKeyHex)
-  const iv = CryptoJS.enc.Hex.parse(jsonKey.crypto.cipherparams.iv)
-
-  // const cipherParams = CryptoJS.lib.CipherParams.create({
-  //   ciphertext: CryptoJS.enc.Hex.parse(jsonKey.crypto.ciphertext),
-  //   iv: CryptoJS.enc.Hex.parse(jsonKey.crypto.cipherparams.iv)
-  // });
-
-  // const decrypted = CryptoJS.AES.decrypt(cipherParams,encKeyHex, {
-  //   mode: CryptoJS.mode.CTR
-  // });
-
-  // const plainTextPrivateKeyHex = decrypted.toString(CryptoJS.enc.Utf8);
-  const wordCipherText = CryptoJS.lib.WordArray.create(cipherTextBytes)
+  const iv = fromHexString(jsonKey.crypto.cipherparams.iv);
+  const decryptedPrivateKey = await aesDecryptCtr(cipherTextBytes, enckey, iv);
+  const pubKey = secp256k1.getPublicKey(fromHexString(decryptedPrivateKey));
   
-  console.log("dec: wordCipherText", CryptoJS.enc.Hex.stringify(wordCipherText), wordCipherText)
-
-
-  // var bytes  = CryptoJS.AES.decrypt(wordCipherText, CryptoJS.enc.Hex.parse(encKeyHex));
-
-  const decKey = CryptoJS.enc.Hex.parse(encKeyHex) 
-  console.log("dec: decKey",decKey)
-
-  console.log("dec: iv: ", iv)
-
-  var decrypted = CryptoJS.AES.decrypt(wordCipherText, decKey, {
-    iv: iv, 
-    mode: CryptoJS.mode.CTR,
-    keySize: 16,
-    // padding: CryptoJS.pad.NoPadding
-  });
- 
-
-
-  // const aesDecryptor = CryptoJS.algo.AES.createDecryptor(CryptoJS.enc.Hex.parse(encKeyHex), { 
-  //   iv: iv,
-  //   mode: CryptoJS.mode.CTR,
-  //   padding: CryptoJS.pad.NoPadding
-  // });
-
-
-  // const part1 = aesDecryptor.process(CryptoJS.enc.Hex.parse(jsonKey.crypto.ciphertext));
-  // const part1Hex = CryptoJS.enc.Hex.stringify(plainTextPrivateKey);
-  // const plainTextPrivateKey = aesDecryptor.finalize();
-  // const plainTextPrivateKeyHex = CryptoJS.enc.Hex.stringify(plainTextPrivateKey);
-  console.log("private key", decrypted)
-
-  return true
+  return decryptedPrivateKey;
 }
 
 function JSONKey(address, ciphertext, cipherparamsIV, kdfparamsN, kdfparamsR, kdfparamsP, kdfparamsDklen, kdfparamsSalt, mac, keyUUID ) {
@@ -226,3 +223,14 @@ export async function GetKeyFromStorage() {
     return ret.value
 }
 
+export async function SaveUnlockedKeyToStorage(data) {
+  await Preferences.set({
+      key: 'unlockedkey',
+      value: data
+    });   
+}
+
+export async function GetUnlockedKeyFromStorage() {
+  const ret = await Preferences.get({ key: 'unlockedkey' });
+  return ret.value
+}

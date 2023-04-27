@@ -19,6 +19,7 @@ import '@ionic/vue/css/text-alignment.css';
 import '@ionic/vue/css/text-transformation.css';
 import '@ionic/vue/css/flex-utils.css';
 import '@ionic/vue/css/display.css';
+// import { globalState } from "./store.js"
 
 /* Theme variables */
 import './theme/variables.css';
@@ -27,10 +28,8 @@ const app = createApp(App)
   .use(IonicVue)
   .use(router);
 
-// treat all tags starting with 'ion-' as custom elements
-// app.config.compilerOptions.isCustomElement = (tag) => {
-//   return tag.startsWith('ion-')
-// }
+// app.provide('globalState', globalState);
+
 
 router.isReady().then(() => {
   app.mount('#app');

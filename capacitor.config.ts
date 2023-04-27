@@ -1,8 +1,8 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
-const config = {
-  appId: 'io.ionic.starter',
-  appName: 'mobile-wallet',
+const config: CapacitorConfig = {
+  appId: 'com.filefilego.wallet',
+  appName: 'FileFileGo',
   webDir: 'dist',
   bundledWebRuntime: false
 };

@@ -5,5 +5,5 @@
     "moduleResolution": "Node",
     "allowSyntheticDefaultImports": true
   },
-  "include": ["src/**/*.js","vite.config.js"]
+  "include": ["src/**/*.js","vite.config.js"],
 }
