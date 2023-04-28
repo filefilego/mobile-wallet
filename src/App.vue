@@ -48,7 +48,7 @@
   </ion-app>
 </template>
 <script>
-import { IonIcon, IonApp, IonPage, IonRouterOutlet, IonMenu, IonHeader, IonToolbar, IonTitle, IonContent, IonMenuToggle, IonButton} from '@ionic/vue';
+import { IonIcon, IonApp, IonPage, IonMenu, IonHeader, IonToolbar, IonTitle, IonContent, IonMenuToggle, IonButton} from '@ionic/vue';
 import { closeOutline, walletOutline, appsOutline, settingsOutline } from 'ionicons/icons';
 
 export default {

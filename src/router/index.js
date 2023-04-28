@@ -3,7 +3,6 @@ import CreateKey from '../views/CreateKey.vue'
 import Home from '../views/Home.vue'
 import Unlock from '../views/Unlock.vue'
 import Settings from '../views/Settings.vue'
-import { ref } from 'vue';
 import { globalState, unlockKey } from '../store';
 import { GetKeyFromStorage, GetUnlockedKeyFromStorage } from "../key.js"
 

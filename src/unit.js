@@ -1,5 +1,6 @@
 import BN  from "bn.js";
 import numberToBN from "number-to-bn";
+
 const negative1 = new BN(-1);
 const zero = new BN(0);
 

@@ -45,10 +45,9 @@
   
   <script>
   import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonImg, IonInput, IonButton, IonIcon, IonText, IonAlert, alertController} from '@ionic/vue';
-  import { GenerateKey, SaveKeyToStorage, GetKeyFromStorage, UnlockKey, SignTransaction, SaveUnlockedKeyToStorage, GetUnlockedKeyFromStorage } from "../key.js"
+  import { GetKeyFromStorage, UnlockKey, SaveUnlockedKeyToStorage } from "../key.js"
   import { keyOutline, warning } from 'ionicons/icons';
-  import { ref, onMounted } from 'vue';
-  import { globalState, unlockKey } from '../store';
+  import { unlockKey } from '../store';
 
   export default {
     components: {

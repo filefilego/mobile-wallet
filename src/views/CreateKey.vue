@@ -1,10 +1,5 @@
 <template>
       <div>
-        <!-- <div style="position: absolute; left: 15px; z-index: 1000000; top: 15px;">
-                <ion-menu-toggle>
-                    <ion-icon size="large" style="cursor: pointer; color: #fff; " :icon="menuOutline"></ion-icon>
-                </ion-menu-toggle>
-            </div> -->
           <div class="area" style="padding-bottom: 12px; padding-top: 21px; background-color: rgb(62, 21, 202); text-align: center;">
               <ul class="circles">
                   <li></li>
@@ -34,7 +29,7 @@
               <br />
               <ion-input v-model="password2" label="Confirm Password" label-placement="floating" fill="outline" placeholder="Enter your password" type="password"></ion-input>
               <br />
-              <ion-button @click="createKey" fill="outline" style="font-weight:bold; width:100%; height:50px; --border-color: #3e15ca; background-color: #3e15ca; color: white;"> 
+              <ion-button :disabled="generatingKey" @click="createKey" fill="outline" style="font-weight:bold; width:100%; height:50px; --border-color: #3e15ca; background-color: #3e15ca; color: white;"> 
                 Create Key
                 <ion-icon slot="end" :icon="keyOutline"></ion-icon>
               </ion-button>
@@ -59,37 +54,10 @@
             <ion-header>
                 <ion-toolbar style="--background: #3e15ca;">
                 <ion-title style="color: white;">Save your key</ion-title>
-                <!-- <ion-buttons style="color: white;" slot="end">
-                    <ion-button @click="cancelSave()">Cancel</ion-button>
-                </ion-buttons> -->
                 </ion-toolbar>
             </ion-header>
-            <ion-content class="ion-padding">
-                <!-- <div class="area" style="padding-bottom: 12px; padding-top: 21px; background-color: rgb(62, 21, 202); text-align: center;">
-                    <ul class="circles">
-                        <li></li>
-                        <li></li>
-                        <li></li>
-                        <li></li>
-                        <li></li>
-                        <li></li>
-                        <li></li>
-                        <li></li>
-                        <li></li>
-                        <li></li>
-                    </ul>
-                    <div>
-                    <img style="height: 72px; background-color: white; width: 72px; border-radius: 50%;" src="/assets/icon.png" />
-                    </div>
-                    <div style="margin-top:2px;">
-                        <span style="color: #fff; font-size: 30px;">Wallet Address</span>
-                    </div>
-                    <div style="margin-top:2px;">
-                    </div>
-                </div> -->
-               
+            <ion-content class="ion-padding">               
                 <div style="border: 1px solid #dbdbdb; border-radius: 4px; padding:20px;">
-                <!-- <ion-input readonly v-model="receiveAddress" label="Your Address" label-placement="floating" fill="outline" type="text"></ion-input> -->
                 <strong style="margin-top:20px;">Please backup your wallet key file NOW!</strong>
                 <br /> <br />
                 
@@ -110,9 +78,7 @@
 
                 <ion-button @click="goToUnlock" :disabled="confirmed" fill="outline" style="font-weight:bold; width:100%; height:50px; --border-color: #000; background-color: #000; color: white;"> 
                   Confirm and continue
-                </ion-button>
-                
-               
+                </ion-button>           
               </div>
             </ion-content>
         </ion-modal>
@@ -122,9 +88,8 @@
 
 <script>
 import { IonCheckbox, IonModal, IonButtons, IonMenuToggle,IonGrid, IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonImg, IonInput, IonButton, IonIcon, IonText, IonAlert, IonCol, IonRow, alertController, IonItem, IonLabel, IonList, IonListHeader} from '@ionic/vue';
-import {GenerateKey, SaveKeyToStorage, GetKeyFromStorage, UnlockKey, SignTransaction} from "../key.js"
-import { menuOutline, keyOutline, warning, arrowDownCircleOutline, paperPlaneOutline } from 'ionicons/icons';
-import { Browser } from '@capacitor/browser';
+import {GenerateKey, SaveKeyToStorage, GetKeyFromStorage} from "../key.js"
+import { menuOutline, keyOutline, warning} from 'ionicons/icons';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 
 export default {
@@ -154,6 +119,7 @@ export default {
   },
   data() {
       return {
+        generatingKey: false,
         isOpen: false,
         confirm1: false,
         confirm2: false,
@@ -250,14 +216,12 @@ export default {
       this.$refs.modalSave.$el.dismiss(null, 'cancel');
     },
     onWillDismiss(ev) {
-      if (ev.detail.role === 'confirm') {
-      // this.message = `${ev.detail.data}!`;
-      }
+      if (ev.detail.role === 'confirm') {}
     },
     setOpen(isOpen) {
         this.isOpen = isOpen;
     },
-    async createKey() {
+    createKey() {
       if (this.password1 != this.password2) {
         this.presentAlert("Passwords do not match", "Please make sure password confirmation is same as the password.");
         return;
@@ -268,14 +232,23 @@ export default {
         return;
       }
 
-      try {
-        const keyfile = await GenerateKey(this.password1);
-        let keyStr = JSON.stringify(keyfile.jsonKey)
-        await SaveKeyToStorage(keyStr)
-        this.setOpen(true);
-      } catch (e) {
-        this.presentAlert("Error", "Failed to create key: "+ e.message);
-      }
+        if(this.generatingKey) return;
+        this.generatingKey = true;
+              
+        window.setTimeout(() => {
+          GenerateKey(this.password1).then((keyfile) => {
+                let keyStr = JSON.stringify(keyfile.jsonKey)
+                SaveKeyToStorage(keyStr)
+                this.setOpen(true);
+                this.generatingKey = false;
+          })
+          .catch((e) => {
+            this.presentAlert("Error", "Failed to create key: "+ e.message);
+            this.generatingKey = false;
+          });
+
+        }, 0);
+
     },
   },
 

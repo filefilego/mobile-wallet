@@ -47,11 +47,10 @@
     </template>
     
     <script>
-    import { IonMenuToggle, IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonImg, IonInput, IonButton, IonIcon, IonText, IonAlert, alertController} from '@ionic/vue';
-    import { GenerateKey, SaveKeyToStorage, GetKeyFromStorage, UnlockKey, SignTransaction } from "../key.js"
+    import { IonMenuToggle, IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonImg, IonInput, IonButton, IonIcon, IonText, IonAlert} from '@ionic/vue';
     import { menuOutline, keyOutline, warning } from 'ionicons/icons';
     import { ref } from 'vue';
-    import { globalState, unlockKey } from '../store';
+    import { globalState } from '../store';
 
     export default {
       components: {

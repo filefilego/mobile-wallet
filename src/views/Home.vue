@@ -29,7 +29,7 @@
                     <span style="color: #fff; font-size: 30px;">{{balance}} FFG</span>
                 </div>
                 <div style="margin-top:2px;">
-                    <span style="color: #fff; font-size: 25px; font-weight: bold;">N/A USD</span>
+                    <span style="color: #fff; font-size: 25px; font-weight: bold;">≈ {{ convertToUSD }} USD</span>
                 </div> 
                 <div style="margin-top:2px;">
                   <ion-grid>
@@ -91,11 +91,11 @@
          
           <div style="padding:10px; text-align: center;" v-else>
             <div style="border:1px solid #d7d7d7; border-radius: 2px;">
-                <div style="margin-top:20px;">
+                <div style="margin-top:50px;">
                     <span style=" font-size: 25px; font-weight: bold;">No transactions yet</span>
                 </div>
-                <div style="margin-top:50px;">
-                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="200px" height="200px" version="1.1" viewBox="0 0 700 700">
+                <div style="margin-top:18px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="150px" height="150px" version="1.1" viewBox="0 0 700 700">
                         <defs>
                         <symbol id="g" overflow="visible">
                         <path d="m3.6562-0.21875c-0.1875 0.09375-0.38672 0.16797-0.59375 0.21875-0.19922 0.050781-0.40625 0.078125-0.625 0.078125-0.66797 0-1.1992-0.17969-1.5938-0.54688-0.38672-0.375-0.57812-0.87891-0.57812-1.5156 0-0.64453 0.19141-1.1484 0.57812-1.5156 0.39453-0.375 0.92578-0.5625 1.5938-0.5625 0.21875 0 0.42578 0.027344 0.625 0.078125 0.20703 0.054687 0.40625 0.125 0.59375 0.21875v0.82812c-0.1875-0.125-0.375-0.21875-0.5625-0.28125-0.17969-0.0625-0.37109-0.09375-0.57812-0.09375-0.36719 0-0.65625 0.12109-0.875 0.35938-0.21094 0.23047-0.3125 0.55469-0.3125 0.96875 0 0.40625 0.10156 0.73047 0.3125 0.96875 0.21875 0.23047 0.50781 0.34375 0.875 0.34375 0.20703 0 0.39844-0.023437 0.57812-0.078125 0.1875-0.0625 0.375-0.16016 0.5625-0.29688z"/>
@@ -166,7 +166,7 @@
                         </g>
                         </svg>
                 </div>
-                <div style="margin-top:20px; padding-bottom: 100px;">
+                <div style="margin-top:2px; padding-bottom: 65px;">
                     <ion-button @click="openUrl" fill="outline" style="font-weight:bold; width:270px; height:50px; --border-color: #3e15ca; background-color: #3e15ca; color: white;"> 
                     Buy FFG
                     <ion-icon slot="end" :icon="cashOutline"></ion-icon>
@@ -316,19 +316,31 @@
                 </div>
             </ion-content>
         </ion-modal>
+
+        <ion-alert
+            :is-open="isAlertOpen"
+            sub-header="Error"
+            :message="networkErrorMessage"
+            :buttons="alertButtons"
+            @didDismiss="setIsAlertOpen(false)"
+        ></ion-alert>
+
+
     </div>
   </template>
   
   <script>
   import { IonBadge, IonProgressBar, IonSpinner, IonMenuToggle, toastController, IonRange,IonModal, IonButtons, IonGrid, IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonImg, IonInput, IonButton, IonIcon, IonText, IonAlert, IonCol, IonRow, alertController, IonItem, IonLabel, IonList, IonListHeader} from '@ionic/vue';
-  import {GenerateKey, SaveKeyToStorage, GetKeyFromStorage, UnlockKey, SignTransaction} from "../key.js"
+  import {SignTransaction} from "../key.js"
   import unitUtil from "../unit.js"
-  import {  menuOutline, keyOutline, warning, arrowDownCircleOutline, paperPlaneOutline, copyOutline, ellipsisVerticalOutline, cashOutline } from 'ionicons/icons';
+  import {  menuOutline, keyOutline, arrowDownCircleOutline, paperPlaneOutline, copyOutline, ellipsisVerticalOutline, cashOutline } from 'ionicons/icons';
   import { Clipboard } from '@capacitor/clipboard';
   import { ref } from 'vue';
-  import { globalState, unlockKey } from '../store';
+  import { globalState } from '../store';
   import axios from 'axios'
   import { Browser } from '@capacitor/browser';
+  import numberToBN from "number-to-bn";
+  import BN  from "bn.js";
 
   export default {
     components: {
@@ -365,6 +377,11 @@
     },
     data() {
         return {
+            networkErrorMessage:"",
+            alertButtons: ["OK"],
+            isAlertOpen: false,
+            usdPerFFG: 0.05,
+            convertToUSD: "0.00",
             tmpTXInfo: {
                 chain: "",
                 data: "",
@@ -382,7 +399,7 @@
             loadingTransactions: false,
             loadingInterval: false,
             reloadInterval: null,
-            balance: "",
+            balance: "0",
             transactions: [],
         }
     },
@@ -395,6 +412,8 @@
             this.transactions = txRes;
             let balanceRes = await this.getBalance();
             this.balance = unitUtil.fromFFGOne(balanceRes.balance_hex, "FFG").toString(16);
+            let parts = this.balance.split(".");
+            this.convertToUSD = this.formatMoney(Number(parts[0]) * this.usdPerFFG)
         } catch (e) {
             this.presentAlert("Error", e.message)
         } finally {
@@ -402,15 +421,25 @@
         }
     }, 
     methods: {
+        setIsAlertOpen(val) {
+            this.isAlertOpen = val;
+        },
+        formatMoney(amount) {
+            const formatter = new Intl.NumberFormat('en-US', {
+                style: 'decimal',
+                minimumFractionDigits: 2
+            });
+            return formatter.format(amount);
+        },
         formatTimestampHuman(unixTimestamp) {
-        const date = new Date(unixTimestamp * 1000); // convert Unix timestamp to JavaScript Date object
-        const year = date.getFullYear();
-        const month = ('0' + (date.getMonth() + 1)).slice(-2); // add leading zero to month if necessary
-        const day = ('0' + date.getDate()).slice(-2); // add leading zero to day if necessary
-        const hours = ('0' + date.getHours()).slice(-2); // add leading zero to hours if necessary
-        const minutes = ('0' + date.getMinutes()).slice(-2); // add leading zero to minutes if necessary
-        const seconds = ('0' + date.getSeconds()).slice(-2); // add leading zero to seconds if necessary
-        return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`; // format the date string as desired
+            const date = new Date(unixTimestamp * 1000); 
+            const year = date.getFullYear();
+            const month = ('0' + (date.getMonth() + 1)).slice(-2);
+            const day = ('0' + date.getDate()).slice(-2); 
+            const hours = ('0' + date.getHours()).slice(-2);
+            const minutes = ('0' + date.getMinutes()).slice(-2); 
+            const seconds = ('0' + date.getSeconds()).slice(-2);
+            return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
         },
         openTxModal(tx) {
             this.$refs.modalInfo.$el.present();
@@ -446,15 +475,17 @@
         },
         async reloadTransactions() {
             try {
-                this.loadingInterval = true
+                this.loadingInterval = true;
                 let txRes = await this.getTransactions();
                 this.transactions = txRes;
 
                 let balanceRes = await this.getBalance();
                 this.balance = unitUtil.fromFFGOne(balanceRes.balance_hex, "FFG").toString(16);
-
+                let parts = this.balance.split(".");
+                this.convertToUSD = this.formatMoney(Number(parts[0]) * this.usdPerFFG)
             } catch (e) {
-                this.presentAlert("Error", "Failed to connect to remote node: "+ e.message);
+                this.networkErrorMessage = "Failed to connect to remote node: "+ e.message;
+                this.setIsAlertOpen(true);
             } finally {
                 this.loadingInterval = false
             }
@@ -592,6 +623,19 @@
 
                 const privKey = ref(globalState.privateKey);
                 let balanceRes = await this.getBalance();
+
+
+                let balanceFFGOneBig = numberToBN(balanceRes.balance_hex);
+                let valueBig = numberToBN("0x"+valueFFGOne);
+                let feesBig = numberToBN("0x"+feesFFGOne);
+
+                let totalFees = valueBig.add(feesBig);
+
+                if(balanceFFGOneBig.lt(totalFees)) {
+                    this.presentAlert("Error", "You don't have enough coins in your balance!")
+                    return
+                }
+              
                 let finalTx = SignTransaction(privKey.value, balanceRes.next_nounce, "0x", this.toAddress, "0x"+valueFFGOne, "0x"+feesFFGOne)
                 this.presentAlert("Sent", "Your transaction was successfully sent, please wait for the confirmation.")
                 let txHashResp = await this.sendRawTX(finalTx)
@@ -617,9 +661,7 @@
             this.$refs.modal.$el.dismiss(name, 'confirm');
         },
         onWillDismiss(ev) {
-            if (ev.detail.role === 'confirm') {
-            // this.message = `Hello, ${ev.detail.data}!`;
-            }
+            if (ev.detail.role === 'confirm') {}
         },
         formatTimestamp(timestamp) {
             const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -627,20 +669,20 @@
             const month = months[date.getMonth()];
             const day = date.getDate();
             return { month: month, day: day };
-        }
-    },
-    async setup() {
-        const presentAlert = async (subHeader, message) => {
+        },
+        async presentAlert(subHeader, message){
             const alert = await alertController.create({
-            header: '',
-            subHeader: subHeader,
-            message: message,
-            buttons: ['OK'],
+                backdropDismiss: false,
+                header: '',
+                subHeader: subHeader,
+                message: message,
+                buttons: ["OK"]
             });
 
             await alert.present();
-        };
-
+        },
+    },
+    async setup() {
         const address = ref(globalState.address);
         return {
             receiveAddress: address,
@@ -654,7 +696,6 @@
             copyOutline,
             menuOutline,
             cashOutline,
-            presentAlert
         }
     }
   }

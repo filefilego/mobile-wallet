@@ -1,7 +1,7 @@
 import { reactive } from 'vue'
 
 const globalState = reactive({
-  endpoint: 'http://validator.local:8090/rpc',
+  endpoint: 'https://rpc.filefilego.com/rpc',
   address: "",
   privateKey: "",
   unlockedTime: null
