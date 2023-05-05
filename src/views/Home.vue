@@ -332,7 +332,6 @@
   <script>
   import { IonBadge, IonProgressBar, IonSpinner, IonMenuToggle, toastController, IonRange,IonModal, IonButtons, IonGrid, IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonImg, IonInput, IonButton, IonIcon, IonText, IonAlert, IonCol, IonRow, alertController, IonItem, IonLabel, IonList, IonListHeader} from '@ionic/vue';
   import {SignTransaction} from "../key.js"
-  import unitUtil from "../unit.js"
   import {  menuOutline, keyOutline, arrowDownCircleOutline, paperPlaneOutline, copyOutline, ellipsisVerticalOutline, cashOutline } from 'ionicons/icons';
   import { Clipboard } from '@capacitor/clipboard';
   import { ref } from 'vue';
@@ -340,7 +339,9 @@
   import axios from 'axios'
   import { Browser } from '@capacitor/browser';
   import numberToBN from "number-to-bn";
-  import BN  from "bn.js";
+
+  import { Units } from "../unit.js"
+  import BigNumber from 'bignumber.js';
 
   export default {
     components: {
@@ -411,7 +412,10 @@
             let txRes = await this.getTransactions();
             this.transactions = txRes;
             let balanceRes = await this.getBalance();
-            this.balance = unitUtil.fromFFGOne(balanceRes.balance_hex, "FFG").toString(16);
+
+            let balanceBig = new BigNumber(balanceRes.balance_hex, 16);
+            let balanceInFFG = Units.convert(balanceBig.toString(10), "FFGOne", "FFG")
+            this.balance = new BigNumber(balanceInFFG, 10).toString(10)
             let parts = this.balance.split(".");
             this.convertToUSD = this.formatMoney(Number(parts[0]) * this.usdPerFFG)
         } catch (e) {
@@ -446,7 +450,8 @@
             this.tmpTXInfo = tx;
         },
         formatAmount(amount) {
-            return unitUtil.fromFFGOne(amount, "FFG").toString(16)
+            let amountBig = new BigNumber(amount, 16);
+            return Units.convert(amountBig.toString(10), "FFGOne", "FFG")
         },  
         async openUrl() {
             await Browser.open({ url: "https://filefilego.com" });
@@ -478,9 +483,10 @@
                 this.loadingInterval = true;
                 let txRes = await this.getTransactions();
                 this.transactions = txRes;
-
                 let balanceRes = await this.getBalance();
-                this.balance = unitUtil.fromFFGOne(balanceRes.balance_hex, "FFG").toString(16);
+                let balanceBig = new BigNumber(balanceRes.balance_hex, 16);
+                let balanceInFFG = Units.convert(balanceBig.toString(10), "FFGOne", "FFG")
+                this.balance = new BigNumber(balanceInFFG, 10).toString(10)
                 let parts = this.balance.split(".");
                 this.convertToUSD = this.formatMoney(Number(parts[0]) * this.usdPerFFG)
             } catch (e) {
@@ -556,7 +562,7 @@
             let validated = true;
             
             try {
-                unitUtil.toFFGOne(value, "FFG").toString(16);
+                Units.convert(value, "FFG", "FFGOne")
             } catch (e) {
                 validated = false
             }
@@ -574,7 +580,7 @@
             let validated = true;
 
              try {
-                unitUtil.toFFGOne(value, "FFG").toString(16);
+                Units.convert(value, "FFG", "FFGOne")
             } catch (e) {
                 validated = false
             }
@@ -589,14 +595,17 @@
                 }
 
                 this.submitTx = true;
-                let valueFFGOne = unitUtil.toFFGOne(this.toValue, "FFG").toString(16);
+
+                let valueFFGOneString = Units.convert(this.toValue, "FFG", "FFGOne")
+                let valueFFGOne = new BigNumber(valueFFGOneString, 10).toString(16)
                 if (valueFFGOne == "0") {
                     throw new Error(
                     `Amount must be greater than zero`
                     );
                 }
 
-                let feesFFGOne = unitUtil.toFFGOne(this.toFees, "FFG").toString(16);
+                let feesFFGOneString = Units.convert(this.toFees, "FFG", "FFGOne")
+                let feesFFGOne = new BigNumber(feesFFGOneString, 10).toString(16)
                 if (feesFFGOne == "0") {
                     throw new Error(
                     `Fees must be greater than zero`

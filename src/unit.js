@@ -1,156 +1,56 @@
-import BN  from "bn.js";
-import numberToBN from "number-to-bn";
+import BigNumber from 'bignumber.js';
 
-const negative1 = new BN(-1);
-const zero = new BN(0);
+var Units = {}
 
-const unitMap = {
-  FFGZero: "0",
-  FFGOne: "1",
-  KFFG: "1000",
-  MFFG: "1000000",
-  GFFG: "1000000000",
-  MicroFFG: "1000000000000",
-  MiliFFG: "1000000000000000",
-  FFG: "1000000000000000000",
-  ZFFG: "1000000000000000000000",
-};
+var rawUnits =  {
+    ffgzero: "0",
+    ffgone: "1",
+    kffg: "1000",
+    mffg: "1000000",
+    gffg: "1000000000",
+    microffg: "1000000000000",
+    miliffg: "1000000000000000",
+    ffg: "1000000000000000000",
+    zffg: "1000000000000000000000",
+  };
 
-function getValueOfUnit(unitInput) {
-  const unit = unitInput ? unitInput : "FFG";
-  var unitValue = unitMap[unit]; // eslint-disable-line
+var units = {}
 
-  if (typeof unitValue !== "string") {
-    throw new Error(
-      `the unit provided ${unitInput} doesn't exists, please use the one of the following units ${JSON.stringify(
-        unitMap,
-        null,
-        2
-      )}`
-    );
+Object.keys(rawUnits).map(function (unit) {
+  unit = unit.toLowerCase()
+  units[unit] = new BigNumber(rawUnits[unit], 10)
+})
+
+Units.units = rawUnits
+
+var re = RegExp(/^[0-9]+\.?[0-9]*$/)
+
+Units.convert = function (value, from, to) {
+  if (!re.test(value)) {
+    throw new Error('Unsupported value')
   }
 
-  return new BN(unitValue, 10);
+  from = from.toLowerCase()
+  if (!units[from]) {
+    throw new Error('Unsupported input unit')
+  }
+
+  to = to.toLowerCase()
+  if (!units[to]) {
+    throw new Error('Unsupported output unit')
+  }
+
+  return new BigNumber(value, 10).mul(units[from]).round(0, BigNumber.ROUND_DOWN).div(units[to]).toString(10)
 }
 
-function numberToString(arg) {
-  if (typeof arg === "string") {
-    if (!arg.match(/^-?[0-9.]+$/)) {
-      throw new Error(
-        `while converting number to string, invalid number value '${arg}'`
-      );
-    }
-    return arg;
-  } else if (typeof arg === "number") {
-    return String(arg);
-  } else if (
-    typeof arg === "object" &&
-    arg.toString &&
-    (arg.toTwos || arg.dividedToIntegerBy)
-  ) {
-    if (arg.toPrecision) {
-      return String(arg.toPrecision());
-    } else {
-      return arg.toString(10);
-    }
+Units.lazyConvert = function (value, to) {
+  var tmp = value.split(' ')
+  if (tmp.length !== 2) {
+    throw new Error('Invalid input')
   }
-  throw new Error(
-    `while converting number to string, invalid number value '${arg}' type ${typeof arg}.`
-  );
+  return Units.convert(tmp[0], tmp[1], to) + ' ' + to
 }
 
-function fromFFGOne(ffgOneInput, unit, optionsInput) {
-  var ffgOne = numberToBN(ffgOneInput);
-  var negative = ffgOne.lt(zero);
-  const base = getValueOfUnit(unit);
-  const baseLength = unitMap[unit].length - 1 || 1;
-  const options = optionsInput || {};
-
-  if (negative) {
-    ffgOne = ffgOne.mul(negative1);
-  }
-
-  var fraction = ffgOne.mod(base).toString(10);
-
-  while (fraction.length < baseLength) {
-    fraction = `0${fraction}`;
-  }
-
-  if (!options.pad) {
-    fraction = fraction.match(/^([0-9]*[1-9]|0)(0*)/)[1];
-  }
-
-  var whole = ffgOne.div(base).toString(10);
-
-  if (options.commify) {
-    whole = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  }
-
-  var value = `${whole}${fraction == "0" ? "" : `.${fraction}`}`;
-
-  if (negative) {
-    value = `-${value}`;
-  }
-
-  return value;
+export {
+    Units
 }
-
-function toFFGOne(ffgInput, unit) {
-  var ffg = numberToString(ffgInput); // eslint-disable-line
-  const base = getValueOfUnit(unit);
-  const baseLength = unitMap[unit].length - 1 || 1;
-
-  // Is it negative?
-  var negative = ffg.substring(0, 1) === "-"; // eslint-disable-line
-  if (negative) {
-    ffg = ffg.substring(1);
-  }
-
-  if (ffg === ".") {
-    throw new Error(
-      `while converting number ${ffgInput} to ffgOne, invalid value`
-    );
-  }
-
-  // Split it into a whole and fractional part
-  var comps = ffg.split("."); // eslint-disable-line
-  if (comps.length > 2) {
-    throw new Error(
-      `while converting number ${ffgInput} to ffgOne,  too many decimal points`
-    );
-  }
-
-  var whole = comps[0],
-    fraction = comps[1]; // eslint-disable-line
-
-  if (!whole) {
-    whole = "0";
-  }
-  if (!fraction) {
-    fraction = "0";
-  }
-  if (fraction.length > baseLength) {
-    throw new Error(
-      `while converting number ${ffgInput} to ffgOne, too many decimal places`
-    );
-  }
-
-  while (fraction.length < baseLength) {
-    fraction += "0";
-  }
-
-  whole = new BN(whole);
-  fraction = new BN(fraction);
-  let ffgOne = whole.mul(base).add(fraction); // eslint-disable-line
-
-  if (negative) {
-    ffgOne = ffgOne.mul(negative1);
-  }
-
-  return new BN(ffgOne.toString(10), 10);
-}
-
-export default {
-  fromFFGOne,
-  toFFGOne,
-};

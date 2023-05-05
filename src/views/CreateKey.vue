@@ -119,6 +119,7 @@ export default {
   },
   data() {
       return {
+        keySaved: false,
         generatingKey: false,
         isOpen: false,
         confirm1: false,
@@ -171,21 +172,28 @@ export default {
         let jsonKey = JSON.parse(fileContents);
         let fileName = this.generateFilename(jsonKey.address);
         const resultWrite = await Filesystem.writeFile({
-          path:  "filefilegowalletkey.json",
+          path:  "filefilegowalletkey_"+ jsonKey.address + "_" +Math.floor(Date.now() / 1000) + ".json",
           data: fileContents,
           directory: Directory.Documents,
           encoding: Encoding.UTF8,
         });
 
+        this.keySaved = true;
         this.presentAlert("Success", "Your wallet key was saved in: "+ resultWrite.uri);
+        
       } catch (e) {
         this.presentAlert("Error", "There might be already a wallet key stored, please delete manually if you want to create a new wallet key. Error: "+ e.message);
       }
     },
     goToUnlock() {
+      if(!this.keySaved) {
+        this.presentAlert("Error", "Please click on Save wallet key and allow the application to write your key on your device.");
+        return;
+      }
+
       if(!this.confirmed) {
         this.isOpen = false;
-        this.$router.push("/unlock")
+        this.$router.replace("/unlock")
       }
     },
     openFileSelector() {
